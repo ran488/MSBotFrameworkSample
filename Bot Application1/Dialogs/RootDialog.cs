@@ -5,25 +5,57 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.Bot.Connector;
 using Microsoft.Bot.Builder.FormFlow;
+using Microsoft.Bot.Builder.Luis;
+using Microsoft.Bot.Builder.Luis.Models;
 
 namespace Bot_Application1.Dialogs
 {
     [Serializable]
-    public class RootDialog : IDialog<object>
+    [LuisModel("d91fd39c-ca31-4874-b262-7bfa24c96f3b", "2c36ab609be845e78f30e7ed8f7dfe33")]
+    public class RootDialog : LuisDialog<object>
     {
 
         private const string ReservartionOption = "Reserve Table";
         private const string HelloOption = "Say Hello";
 
 
-        public async Task StartAsync(IDialogContext context)
+        [LuisIntent("")]
+        [LuisIntent("None")]
+        public async Task None(IDialogContext context, LuisResult result)
         {
-            await context.PostAsync("Welcome to Dinner Bot, lets book a table for you. You will need to provide a few details.");
-            var reservationForm = new FormDialog<ReservationDialog>(new ReservationDialog(),
-                                                                    ReservationDialog.BuildForm,
-                                                                    FormOptions.PromptFieldsWithValues);
-            context.Call(reservationForm, ReservationFormComplete);
+            string message = $"Sorry, I did not understand '{result.Query}'";
+            await context.PostAsync(message);
+            context.Wait(MessageReceived);
         }
+
+        [LuisIntent("ReserveATable")]
+        public async Task ReserveATable(IDialogContext context, LuisResult result)
+        {
+            try
+            {
+                await context.PostAsync("Great, lets book a table for you. You will need to provide a few details.");
+                var reservationForm = new FormDialog<ReservationDialog>(new ReservationDialog(), ReservationDialog.BuildForm, FormOptions.PromptInStart);
+                context.Call(reservationForm, ReservationFormComplete);
+            }
+            catch (Exception)
+            {
+                await context.PostAsync("Something really bad happened. You can try again later meanwhile I'll check what went wrong.");
+                context.Wait(MessageReceived);
+            }
+        }
+
+        [LuisIntent("SayHello")]
+        public async Task SayHello(IDialogContext context, LuisResult result)
+        {
+            context.Call(new HelloDialog(), this.ResumeAfterOptionDialog);
+        }
+        [LuisIntent("Help")]
+        public async Task Help(IDialogContext context, LuisResult result)
+        {
+            await context.PostAsync("Insert Help Dialog here");
+            context.Wait(MessageReceived);
+        }
+
 
         private async Task MessageReceivedAsync(IDialogContext context, IAwaitable<object> result)
         {
